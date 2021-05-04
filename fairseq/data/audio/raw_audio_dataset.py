@@ -262,6 +262,7 @@ class FileAudioDataset(RawAudioDataset):
         skipped = 0
         self.fnames = []
         sizes = []
+        self.line_inds = set()
         with open(manifest_path, "r") as f:
             self.root_dir = f.readline().strip()
             for i, line in enumerate(f):
@@ -272,6 +273,7 @@ class FileAudioDataset(RawAudioDataset):
                     skipped += 1
                     continue
                 self.fnames.append(items[0])
+                self.line_inds.add(i)
                 sizes.append(sz)
         logger.info(f"loaded {len(self.fnames)}, skipped {skipped} samples")
 
