@@ -17,7 +17,6 @@ from fairseq.data import AddTargetDatasetBart as AddTargetDataset
 from fairseq.data import Dictionary, FileAudioDataset, encoders
 from fairseq.dataclass import FairseqDataclass
 from fairseq.dataclass.configs import GenerationConfig
-# from fairseq.data import encoders
 from fairseq.data.encoders.gpt2_bpe import GPT2BPE
 
 from . import FairseqTask, register_task
@@ -27,24 +26,14 @@ from ..logging import metrics
 
 class LabelEncoder(object):
     def __init__(self, dictionary):
-        # self.cfg = cfg
-        # self.bpe = encoders.build_bpe(cfg.bpe)
         self.dictionary = dictionary
-        # self.source_dictionary = source_dictionary
-        # self.max_positions = max_positions
+
 
     def __call__(self, label):
-        # self.bpe = GPT2BPE(self.cfg.bpe)
         return self.dictionary.encode_line(
             label, append_eos=False, add_if_not_exist=False
         )
-        
-        # tokens = self.bpe.encode(label)
-        # if len(tokens.split(" ")) > min(self.max_positions) - 2:
-        #     tokens = " ".join(tokens.split(" ")[: min(self.max_positions) - 2])
-        # bpe_sentence = "<s> " + tokens + " </s>"
-        # tokens = self.source_dictionary.encode_line(bpe_sentence, append_eos=False)
-        # return tokens.long()
+
 
 
 @dataclass
