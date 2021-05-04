@@ -37,7 +37,6 @@ class AddTargetDatasetBart(BaseWrapperDataset):
     def __getitem__(self, index):
         item = self.dataset[index]
         item["label"] = self.get_label(index)
-        # print('get item', self.labels[index], item["label"])
 
         return item
 
