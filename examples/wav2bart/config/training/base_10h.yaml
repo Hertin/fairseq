@@ -18,7 +18,6 @@ task:
   normalize: false
   labels: ltr
   autoregressive: true
-  max_sample_size: 1000
   eval_wer: true
 
 dataset:
