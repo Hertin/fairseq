@@ -18,6 +18,7 @@ from fairseq.data import Dictionary, FileAudioDataset, encoders
 from fairseq.dataclass import FairseqDataclass
 from fairseq.dataclass.configs import GenerationConfig
 from fairseq.data.encoders.gpt2_bpe import GPT2BPE
+from fairseq.models.bart import BARTModel
 
 from . import FairseqTask, register_task
 from .. import utils
@@ -90,6 +91,10 @@ class AudioPretrainingConfig(FairseqDataclass):
         },
     )
 
+    bart_path: str = field(
+        default="",
+        metadata={"help": "path of bart model"},
+    )
 
 @register_task("audio_pretraining_bpe", dataclass=AudioPretrainingConfig)
 class AudioPretrainingBPETask(FairseqTask):
@@ -106,8 +111,11 @@ class AudioPretrainingBPETask(FairseqTask):
             assert cfg.labels is not None, "eval_wer can only be set during fine-tuning"
         self.blank_symbol = "<s>"
 
-        # self.state.add_factory("target_dictionary", self.load_target_dictionary)
-        self.bart = torch.hub.load('pytorch/fairseq', 'bart.base')
+        # self.bart = torch.hub.load('pytorch/fairseq', 'bart.base')
+        print('cfg' ,cfg)
+
+        print('cfg', cfg.bart_path)
+        self.bart = BARTModel.from_pretrained(cfg.bart_path, checkpoint_file='model.pt')
         self.state.merge_state_dict({'target_dictionary': self.bart.task.target_dictionary})
         
     @classmethod

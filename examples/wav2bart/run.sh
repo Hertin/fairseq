@@ -12,7 +12,7 @@ set -e
 set -u
 set -o pipefail
 
-librilight_path="/mnt/Storage/SST/dataset/librilight/librispeech_finetuning" # change the path to librilight data
+librilight_path="/mnt/Eextension/SST/dataset/librispeech_finetuning" # change the path to librilight data
 manifest_path="$(pwd)/manifest/librilight10h" # path to save manifest
 
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
@@ -39,7 +39,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     config_dir="$(pwd)/config/training"
     config_name="base_10h"
     w2v_path="$(pwd)/models/wav2vec_small.pt"
-    
-    fairseq-hydra-train task.data=${manifest_path} model.w2v_path=${w2v_path} --config-dir ${config_dir} --config-name ${config_name}
+    bart_path="$(pwd)/models/bart.base"
+    fairseq-hydra-train task.data=${manifest_path} task.bart_path=${bart_path} model.w2v_path=${w2v_path} model.bart_path=${bart_path} --config-dir ${config_dir} --config-name ${config_name}
 
 fi

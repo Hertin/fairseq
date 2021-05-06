@@ -128,6 +128,11 @@ class Wav2BartConfig(FairseqDataclass):
 
     autoregressive: bool = II("task.autoregressive")
 
+    bart_path: str = field(
+        default="",
+        metadata={"help": "path of bart model"},
+    )
+
 @register_model("wav2bart", dataclass=Wav2BartConfig)
 class Wav2Bart(FairseqEncoderDecoderModel):
     def __init__(self, encoder, decoder):
@@ -331,7 +336,9 @@ class BartDecoder(FairseqIncrementalDecoder):
     ):
         super().__init__(dictionary)
         self.cfg = cfg
-        bart = torch.hub.load('pytorch/fairseq', 'bart.base')
+        # bart = torch.hub.load('pytorch/fairseq', 'bart.base')
+        from fairseq.models.bart import BARTModel
+        bart = BARTModel.from_pretrained(cfg.bart_path, checkpoint_file='model.pt')
         bart_decoder = bart.model.decoder
         self.decoder = TransformerDecoder(bart_decoder.args, bart_decoder.dictionary, bart_decoder.embed_tokens)
         self.decoder.load_state_dict(bart_decoder.state_dict())

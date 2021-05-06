@@ -19,6 +19,8 @@ task:
   labels: ltr
   autoregressive: true
   eval_wer: true
+  max_sample_size: 2000
+  bart_path: ???
 
 dataset:
   num_workers: 6
@@ -30,7 +32,7 @@ dataset:
 
 distributed_training:
   ddp_backend: legacy_ddp
-  distributed_world_size: 2
+  distributed_world_size: 1
 
 criterion:
   _name: cross_entropy
@@ -62,4 +64,4 @@ model:
   activation_dropout: 0.1
   feature_grad_mult: 0.0
   freeze_finetune_updates: 10000
-
+  bart_path: ???
