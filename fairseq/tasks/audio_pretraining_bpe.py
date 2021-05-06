@@ -154,12 +154,13 @@ class AudioPretrainingBPETask(FairseqTask):
 
         if task_cfg.labels:
             label_path = os.path.join(data_path, f"{split}.{task_cfg.labels}")
+            skipped_indices = getattr(self.datasets[split], 'skipped_indices', set())
             with open(label_path, "r") as f:
                 labels = [ # encode using bpe
                     self.encode( # convert to lower case
                         ''.join(line.split()).lower().replace('|', ' ')
                     ) for i, line in enumerate(f)
-                    if i in self.datasets[split].line_inds
+                    if i not in skipped_indices
                 ]
 
             assert len(labels) == len(self.datasets[split]), (
