@@ -168,7 +168,7 @@ class Wav2Bart(FairseqEncoderDecoderModel):
     def build_encoder(cls, cfg: Wav2BartConfig):
         encoder = Wav2VecEncoder(cfg)
         if cfg.fix_encoder:
-            for parameter in model.parameters():
+            for parameter in encoder.parameters():
                 parameter.requires_grad = False
 
         return encoder
