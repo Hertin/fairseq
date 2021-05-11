@@ -19,7 +19,6 @@ task:
   labels: ltr
   autoregressive: true
   eval_wer: true
-  max_sample_size: 2000
   bart_path: ???
 
 dataset:
@@ -32,14 +31,14 @@ dataset:
 
 distributed_training:
   ddp_backend: legacy_ddp
-  distributed_world_size: 1
+  distributed_world_size: 4
 
 criterion:
   _name: cross_entropy
 
 optimization:
   max_update: 13000
-  lr: [0.00005]
+  lr: [0.00002]
   sentence_avg: true
   update_freq: [4]
 
@@ -65,3 +64,4 @@ model:
   feature_grad_mult: 0.0
   freeze_finetune_updates: 10000
   bart_path: ???
+  fix_encooder: false

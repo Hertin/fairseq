@@ -5,6 +5,7 @@
 
 from argparse import Namespace
 import contextlib
+import os
 import copy
 import math
 import numpy as np
@@ -124,7 +125,7 @@ class Wav2BartConfig(FairseqDataclass):
     # this holds the loaded wav2vec args
     w2v_args: Any = None
 
-    fix_extractor: bool = True
+    fix_extractor: bool = False
 
     autoregressive: bool = II("task.autoregressive")
 
@@ -132,6 +133,10 @@ class Wav2BartConfig(FairseqDataclass):
         default="",
         metadata={"help": "path of bart model"},
     )
+
+    fix_encoder: bool = False
+
+    
 
 @register_model("wav2bart", dataclass=Wav2BartConfig)
 class Wav2Bart(FairseqEncoderDecoderModel):
@@ -162,9 +167,10 @@ class Wav2Bart(FairseqEncoderDecoderModel):
     @classmethod
     def build_encoder(cls, cfg: Wav2BartConfig):
         encoder = Wav2VecEncoder(cfg)
-        if cfg.fix_extractor:
-            for parameter in encoder.parameters():
+        if cfg.fix_encooder:
+            for parameter in model.parameters():
                 parameter.requires_grad = False
+
         return encoder
 
     @classmethod
@@ -207,7 +213,12 @@ class Wav2VecEncoder(FairseqEncoder):
         }
 
         if cfg.w2v_args is None:
-            state = checkpoint_utils.load_checkpoint_to_cpu(cfg.w2v_path, arg_overrides)
+            if os.path.isfile(os.path.join(cfg.w2v_path)):
+                print('load wav2vec from cfg path')
+                state = checkpoint_utils.load_checkpoint_to_cpu(cfg.w2v_path, arg_overrides)
+            else:
+                print('load wav2vec from relative path')
+                state = checkpoint_utils.load_checkpoint_to_cpu('models/wav2vec_small.pt', arg_overrides)
             w2v_args = state.get("cfg", None)
             if w2v_args is None:
                 w2v_args = convert_namespace_to_omegaconf(state["args"])
@@ -338,7 +349,13 @@ class BartDecoder(FairseqIncrementalDecoder):
         self.cfg = cfg
         # bart = torch.hub.load('pytorch/fairseq', 'bart.base')
         from fairseq.models.bart import BARTModel
-        bart = BARTModel.from_pretrained(cfg.bart_path, checkpoint_file='model.pt')
+        if os.path.isfile(os.path.join(cfg.bart_path, 'model.pt')):
+            print('loading bart from cfg path')
+            bart = BARTModel.from_pretrained(cfg.bart_path, checkpoint_file='model.pt')
+        else:
+            print('loading bart from relative path')
+            bart = BARTModel.from_pretrained('models/bart.base', checkpoint_file='model.pt')
+        
         bart_decoder = bart.model.decoder
         self.decoder = TransformerDecoder(bart_decoder.args, bart_decoder.dictionary, bart_decoder.embed_tokens)
         self.decoder.load_state_dict(bart_decoder.state_dict())
