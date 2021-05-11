@@ -67,8 +67,8 @@ class AddTargetDatasetBart(BaseWrapperDataset):
                 1,
                 (target.ne(self.pad).sum(dim=1) - 1).unsqueeze(-1),
             ).squeeze()
-            collated["target"] = target.long()
-            
+            prev_output_tokens[:, 1:] = target[:, :-1]
+            collated["target"] = target.long()            
             collated["net_input"]["prev_output_tokens"] = prev_output_tokens.long()
             collated["ntokens"] += target.size(0)
 
