@@ -201,7 +201,6 @@ class WavTransBart(FairseqEncoderDecoderModel):
         return decoder
 
     def forward(self, **kwargs):
-        # print('kwargs', kwargs)
         encoder_out = self.encoder(tbc=True, **kwargs)
         decoder_out = self.decoder(encoder_out=encoder_out, **kwargs)
         return decoder_out
@@ -334,7 +333,6 @@ class Wav2VecEncoder(FairseqEncoder):
         if self.layer_norm is not None:
             x = self.layer_norm(x)
 
-        print('after', tbc, x.size())
         return {
             "encoder_out": [x],  # T x B x C
             "encoder_padding_mask": [padding_mask],  # B x T
@@ -417,12 +415,6 @@ class BartDecoder(FairseqIncrementalDecoder):
                 - the decoder's output of shape `(batch, tgt_len, vocab)`
                 - a dictionary with any model-specific outputs
         """
-        # print('encoder_out', encoder_out)
-        # print('encoder_out', encoder_out["encoder_out"][0].shape,
-        #     encoder_out["encoder_padding_mask"][0].shape,  # T x B
-        # )
-        # encoder_out['encoder_out'] = [encoder_out['encoder_out'].transpose(0, 1)] # []
-        # encoder_out['encoder_padding_mask'] = [encoder_out['encoder_out']] # [T x B]
         x, extra = self.decoder(prev_output_tokens, encoder_out, incremental_state)
 
         return x, extra
