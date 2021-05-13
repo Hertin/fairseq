@@ -137,7 +137,6 @@ def _main(cfg: DictConfig, output_file):
     # (None if no unknown word replacement, empty if no path to align dictionary)
     align_dict = utils.load_align_dict(cfg.generation.replace_unk)
 
-    # Load dataset (possibly sharded)
     itr = task.get_batch_iterator(
         dataset=task.dataset(cfg.dataset.gen_subset),
         max_tokens=cfg.dataset.max_tokens,
@@ -184,7 +183,7 @@ def _main(cfg: DictConfig, output_file):
     num_sentences = 0
     has_target = True
     wps_meter = TimeMeter()
-    for sample in progress:
+    for si, sample in enumerate(progress):
         sample = utils.move_to_cuda(sample) if use_cuda else sample
         if "net_input" not in sample:
             continue
@@ -205,6 +204,7 @@ def _main(cfg: DictConfig, output_file):
             prefix_tokens=prefix_tokens,
             constraints=constraints,
         )
+
         num_generated_tokens = sum(len(h[0]["tokens"]) for h in hypos)
         gen_timer.stop(num_generated_tokens)
 
@@ -239,18 +239,20 @@ def _main(cfg: DictConfig, output_file):
                 else:
                     src_str = ""
                 if has_target:
-                    target_str = tgt_dict.string(
-                        target_tokens,
-                        cfg.common_eval.post_process,
-                        escape_unk=True,
-                        extra_symbols_to_ignore=get_symbols_to_strip_from_output(
-                            generator
-                        ),
-                    )
+                    # target_str = tgt_dict.string(
+                    #     target_tokens,
+                    #     cfg.common_eval.post_process,
+                    #     escape_unk=True,
+                    #     extra_symbols_to_ignore=get_symbols_to_strip_from_output(
+                    #         generator
+                    #     ),
+                    # )
+                    target_str = task.bart.decode(target_tokens.int().cpu())
 
             src_str = decode_fn(src_str)
-            if has_target:
-                target_str = decode_fn(target_str)
+            
+            # if has_target:
+            #     target_str = decode_fn(target_str)
 
             if not cfg.common_eval.quiet:
                 if src_dict is not None:
@@ -260,16 +262,23 @@ def _main(cfg: DictConfig, output_file):
 
             # Process top predictions
             for j, hypo in enumerate(hypos[i][: cfg.generation.nbest]):
-                hypo_tokens, hypo_str, alignment = utils.post_process_prediction(
-                    hypo_tokens=hypo["tokens"].int().cpu(),
-                    src_str=src_str,
-                    alignment=hypo["alignment"],
-                    align_dict=align_dict,
-                    tgt_dict=tgt_dict,
-                    remove_bpe=cfg.common_eval.post_process,
-                    extra_symbols_to_ignore=get_symbols_to_strip_from_output(generator),
-                )
+                # print('align', hypo["alignment"])
+                hypo_tokens = hypo["tokens"].int().cpu()
+                hypo_str = task.bart.decode(hypo["tokens"].int().cpu())
+                alignment = hypo["alignment"]
+                
+                # hypo_tokens, hypo_str, alignment = utils.post_process_prediction(
+                #     hypo_tokens=hypo["tokens"].int().cpu(),
+                #     src_str=src_str,
+                #     alignment=hypo["alignment"],
+                #     align_dict=align_dict,
+                #     tgt_dict=tgt_dict,
+                #     remove_bpe=cfg.common_eval.post_process,
+                #     extra_symbols_to_ignore=get_symbols_to_strip_from_output(generator),
+                # )
+
                 detok_hypo_str = decode_fn(hypo_str)
+
                 if not cfg.common_eval.quiet:
                     score = hypo["score"] / math.log(2)  # convert to base 2
                     # original hypothesis (after tokenization and BPE)
@@ -357,10 +366,13 @@ def _main(cfg: DictConfig, output_file):
                             detok_hypo_str, add_if_not_exist=True
                         )
                     if hasattr(scorer, "add_string"):
+                        # print('add_string 1', target_str, '2', detok_hypo_str)
+                        # if si > 2:
+                        #     raise
                         scorer.add_string(target_str, detok_hypo_str)
                     else:
                         scorer.add(target_tokens, hypo_tokens)
-
+            
         wps_meter.update(num_generated_tokens)
         progress.log({"wps": round(wps_meter.avg)})
         num_sentences += (
