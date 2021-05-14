@@ -12,6 +12,7 @@ from .base_wrapper_dataset import BaseWrapperDataset
 
 from .add_target_dataset import AddTargetDataset
 from .add_target_dataset_bart import AddTargetDatasetBart
+from .add_target_dataset_chr import AddTargetDatasetChr
 from .append_token_dataset import AppendTokenDataset
 from .audio.raw_audio_dataset import BinarizedAudioDataset, FileAudioDataset
 from .backtranslation_dataset import BacktranslationDataset
