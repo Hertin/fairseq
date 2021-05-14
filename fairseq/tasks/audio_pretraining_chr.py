@@ -160,11 +160,9 @@ class AudioPretrainingChrTask(FairseqTask):
         Args:
             cfg (AudioPretrainingConfig): configuration of this task
         """
-        print('cls', cls)
         return cls(cfg)
 
     def load_target_dictionary(self):
-        print('labels', self.cfg.labels)
         if self.cfg.labels:
             dict_path = os.path.join(self.cfg.data, f"dict.{self.cfg.labels}.txt")
             return Dictionary.load(dict_path)
