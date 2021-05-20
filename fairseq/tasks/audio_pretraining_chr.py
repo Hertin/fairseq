@@ -47,6 +47,7 @@ class LabelEncoder(object):
 @dataclass
 class AudioPretrainingConfig(FairseqDataclass):
     data: str = field(default=MISSING, metadata={"help": "path to data directory"})
+    label_dir: Optional[str] = field(default=None, metadata={"help": "path to label directory"})
     labels: Optional[str] = field(
         default=None,
         metadata={"help": "extension of the label file to load, used for fine-tuning"},
@@ -116,21 +117,21 @@ class AudioPretrainingConfig(FairseqDataclass):
     )
     # The following are needed to precompute mask and mask channel indices
     #   before model's forward.
-    mask_length: Optional[int] = II("model.mask_length")
-    mask_prob: Optional[float] = II("model.mask_prob")
-    mask_selection: Optional[str] = II("model.mask_selection")
-    mask_other: Optional[float] = II("model.mask_other")
-    no_mask_overlap: Optional[bool] = II("model.no_mask_overlap")
-    mask_min_space: Optional[int] = II("model.mask_min_space")
-    mask_channel_length: Optional[int] = II("model.mask_channel_length")
-    mask_channel_prob: Optional[float] = II("model.mask_channel_prob")
-    mask_channel_selection: Optional[str] = II("model.mask_channel_selection")
-    mask_channel_other: Optional[float] = II("model.mask_channel_other")
-    no_mask_channel_overlap: Optional[bool] = II("model.no_mask_channel_overlap")
-    mask_channel_min_space: Optional[int] = II("model.mask_channel_min_space")
+    # mask_length: Optional[int] = II("model.mask_length")
+    # mask_prob: Optional[float] = II("model.mask_prob")
+    # mask_selection: Optional[str] = II("model.mask_selection")
+    # mask_other: Optional[float] = II("model.mask_other")
+    # no_mask_overlap: Optional[bool] = II("model.no_mask_overlap")
+    # mask_min_space: Optional[int] = II("model.mask_min_space")
+    # mask_channel_length: Optional[int] = II("model.mask_channel_length")
+    # mask_channel_prob: Optional[float] = II("model.mask_channel_prob")
+    # mask_channel_selection: Optional[str] = II("model.mask_channel_selection")
+    # mask_channel_other: Optional[float] = II("model.mask_channel_other")
+    # no_mask_channel_overlap: Optional[bool] = II("model.no_mask_channel_overlap")
+    # mask_channel_min_space: Optional[int] = II("model.mask_channel_min_space")
 
-    conv_feature_layers: Optional[str] = II("model.conv_feature_layers")
-    encoder_embed_dim: Optional[int] = II("model.encoder_embed_dim")
+    # conv_feature_layers: Optional[str] = II("model.conv_feature_layers")
+    # encoder_embed_dim: Optional[int] = II("model.encoder_embed_dim")
 
     tpu: bool = II("common.tpu")
 
@@ -165,6 +166,8 @@ class AudioPretrainingChrTask(FairseqTask):
     def load_target_dictionary(self):
         if self.cfg.labels:
             dict_path = os.path.join(self.cfg.data, f"dict.{self.cfg.labels}.txt")
+            if not os.path.isfile(dict_path):
+                dict_path = os.path.join(self.cfg.label_dir, f"dict.{self.cfg.labels}.txt")
             return Dictionary.load(dict_path)
         return None
 

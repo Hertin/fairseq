@@ -21,7 +21,8 @@ from fairseq import checkpoint_utils, options, scoring, tasks, utils
 from fairseq.dataclass.utils import convert_namespace_to_omegaconf
 from fairseq.logging import progress_bar
 from fairseq.logging.meters import StopwatchMeter, TimeMeter
-from omegaconf import DictConfig
+from fairseq.models.wav2bart import *
+from omegaconf import DictConfig, read_write
 
 
 def main(cfg: DictConfig):
@@ -41,7 +42,7 @@ def main(cfg: DictConfig):
         os.makedirs(cfg.common_eval.results_path, exist_ok=True)
         output_path = os.path.join(
             cfg.common_eval.results_path,
-            "generate-{}.txt".format(cfg.dataset.gen_subset),
+            "generate-{}.txt".format(cfg.dataset.gen_subset.split('/')[-1]),
         )
         with open(output_path, "w", buffering=1, encoding="utf-8") as h:
             return _main(cfg, h)
@@ -63,6 +64,12 @@ def _main(cfg: DictConfig, output_file):
         level=os.environ.get("LOGLEVEL", "INFO").upper(),
         stream=output_file,
     )
+    
+    if 'label_dir' in cfg.task:
+        manifest_dir, _ = os.path.split(cfg.dataset.gen_subset)
+        with read_write(cfg):
+            cfg.task.label_dir = os.path.join(cfg.task.data, manifest_dir)
+        print('cfg.task.data', cfg.task.label_dir)
     logger = logging.getLogger("fairseq_cli.generate")
 
     utils.import_user_module(cfg.common)
@@ -101,6 +108,17 @@ def _main(cfg: DictConfig, output_file):
         strict=(cfg.checkpoint.checkpoint_shard_count == 1),
         num_shards=cfg.checkpoint.checkpoint_shard_count,
     )
+
+    token_type = None
+    if type(models[0]) == Wav2Bart or type(models[0]) == WavTransBart or type(models[0]) == WavLinearBart:
+        
+        token_type = 'bart'
+    elif type(models[0]) == Wav2BartChr:
+        token_type = 'chr'
+    else:
+        raise ValueError(f'token_type not defined for {type(models[0])}')
+    print(f'token_type is {token_type}')
+
 
     # loading the dataset should happen after the checkpoint has been loaded so we can give it the saved task config
     task.load_dataset(cfg.dataset.gen_subset, task_cfg=saved_cfg.task)
@@ -197,6 +215,7 @@ def _main(cfg: DictConfig, output_file):
             constraints = sample["constraints"]
 
         gen_timer.start()
+
         hypos = task.inference_step(
             generator,
             models,
@@ -207,7 +226,6 @@ def _main(cfg: DictConfig, output_file):
 
         num_generated_tokens = sum(len(h[0]["tokens"]) for h in hypos)
         gen_timer.stop(num_generated_tokens)
-
         for i, sample_id in enumerate(sample["id"].tolist()):
             has_target = sample["target"] is not None
 
@@ -239,20 +257,27 @@ def _main(cfg: DictConfig, output_file):
                 else:
                     src_str = ""
                 if has_target:
-                    # target_str = tgt_dict.string(
-                    #     target_tokens,
-                    #     cfg.common_eval.post_process,
-                    #     escape_unk=True,
-                    #     extra_symbols_to_ignore=get_symbols_to_strip_from_output(
-                    #         generator
-                    #     ),
-                    # )
-                    target_str = task.bart.decode(target_tokens.int().cpu())
+                    if token_type == 'chr':
+                        target_str = tgt_dict.string(
+                            target_tokens,
+                            cfg.common_eval.post_process,
+                            escape_unk=True,
+                            extra_symbols_to_ignore=get_symbols_to_strip_from_output(
+                                generator
+                            ),
+                        )
+                    elif token_type == 'bart':
+                        target_str = task.bart.decode(target_tokens.int().cpu())
+                    else:
+                        raise ValueError(f'token_type not defined for {type(models[0])}')
 
             src_str = decode_fn(src_str)
             
-            # if has_target:
-            #     target_str = decode_fn(target_str)
+            if has_target and token_type == 'chr':
+                target_str = decode_fn(target_str)
+
+
+
 
             if not cfg.common_eval.quiet:
                 if src_dict is not None:
@@ -263,22 +288,31 @@ def _main(cfg: DictConfig, output_file):
             # Process top predictions
             for j, hypo in enumerate(hypos[i][: cfg.generation.nbest]):
                 # print('align', hypo["alignment"])
-                hypo_tokens = hypo["tokens"].int().cpu()
-                hypo_str = task.bart.decode(hypo["tokens"].int().cpu())
-                alignment = hypo["alignment"]
-                
-                # hypo_tokens, hypo_str, alignment = utils.post_process_prediction(
-                #     hypo_tokens=hypo["tokens"].int().cpu(),
-                #     src_str=src_str,
-                #     alignment=hypo["alignment"],
-                #     align_dict=align_dict,
-                #     tgt_dict=tgt_dict,
-                #     remove_bpe=cfg.common_eval.post_process,
-                #     extra_symbols_to_ignore=get_symbols_to_strip_from_output(generator),
-                # )
+                if token_type == 'bart':
+                    hypo_tokens = hypo["tokens"].int().cpu()
+                    hypo_str = task.bart.decode(hypo["tokens"].int().cpu())
+                    alignment = hypo["alignment"]
+                elif token_type == 'chr':
+                    hypo_tokens, hypo_str, alignment = utils.post_process_prediction(
+                        hypo_tokens=hypo["tokens"].int().cpu(),
+                        src_str=src_str,
+                        alignment=hypo["alignment"],
+                        align_dict=align_dict,
+                        tgt_dict=tgt_dict,
+                        remove_bpe=cfg.common_eval.post_process,
+                        extra_symbols_to_ignore=get_symbols_to_strip_from_output(generator),
+                    )
+                else:
+                    raise ValueError(f'token_type not defined for {type(models[0])}')
 
                 detok_hypo_str = decode_fn(hypo_str)
 
+                if token_type == 'chr':
+                    print('target_str', ''.join(target_str.split()).replace('|', ' '))
+                    print('typo_str', ''.join(detok_hypo_str.split()).replace('|', ' '))
+                elif token_type == 'bart':
+                    print('target_str', target_str)
+                    print('typo_str', detok_hypo_str)
                 if not cfg.common_eval.quiet:
                     score = hypo["score"] / math.log(2)  # convert to base 2
                     # original hypothesis (after tokenization and BPE)
@@ -372,7 +406,9 @@ def _main(cfg: DictConfig, output_file):
                         scorer.add_string(target_str, detok_hypo_str)
                     else:
                         scorer.add(target_tokens, hypo_tokens)
-            
+
+        raise
+
         wps_meter.update(num_generated_tokens)
         progress.log({"wps": round(wps_meter.avg)})
         num_sentences += (
