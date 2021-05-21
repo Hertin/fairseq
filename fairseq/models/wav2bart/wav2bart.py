@@ -135,6 +135,7 @@ class Wav2BartConfig(FairseqDataclass):
     )
 
     fix_encoder: bool = False
+    fix_decoder: bool = False
 
     
 
@@ -150,15 +151,6 @@ class Wav2Bart(FairseqEncoderDecoderModel):
         assert cfg.autoregressive, "Please set task.autoregressive=true for seq2seq asr models"
 
         src_dict, tgt_dict = task.source_dictionary, task.target_dictionary
-
-        # def build_embedding(dictionary, embed_dim):
-        #     num_embeddings = len(dictionary)
-        #     padding_idx = dictionary.pad()
-        #     emb = Embedding(num_embeddings, embed_dim, padding_idx)
-        #     return emb
-
-        # decoder_embed_tokens = build_embedding(tgt_dict, cfg.decoder_embed_dim)
-
         encoder = cls.build_encoder(cfg)
         decoder = cls.build_decoder(cfg)
         model = Wav2Bart(encoder, decoder)
@@ -168,6 +160,7 @@ class Wav2Bart(FairseqEncoderDecoderModel):
     def build_encoder(cls, cfg: Wav2BartConfig):
         encoder = Wav2VecEncoder(cfg)
         if cfg.fix_encoder:
+            print('fix w2v encoder')
             for parameter in encoder.parameters():
                 parameter.requires_grad = False
 
@@ -176,10 +169,13 @@ class Wav2Bart(FairseqEncoderDecoderModel):
     @classmethod
     def build_decoder(cls, cfg: Wav2BartConfig):
         decoder = BartDecoder(cfg)
+        if cfg.fix_decoder:
+            print('fix bart decoder')
+            for parameter in decoder.parameters():
+                parameter.requires_grad = False
         return decoder
 
     def forward(self, **kwargs):
-        # print('kwargs', kwargs)
         encoder_out = self.encoder(tbc=True, **kwargs)
         decoder_out = self.decoder(encoder_out=encoder_out, **kwargs)
         return decoder_out
@@ -286,32 +282,25 @@ class Wav2VecEncoder(FairseqEncoder):
 
         if self.proj:
             x = self.proj(x)
-        # print('forward', tbc, x.size())
+
         return {
             "encoder_out": [x],  # T x B x C
             "encoder_padding_mask": [padding_mask],  # B x T
         }
 
     def reorder_encoder_out(self, encoder_out, new_order):
-        # print(encoder_out)
-        # print(encoder_out["encoder_out"])
-        # print('encoder_out["encoder_out"]', encoder_out["encoder_out"][0].size(), encoder_out["encoder_padding_mask"][0].shape)
-        # raise
-        # print('new_order', new_order)
-        # raise
         if len(encoder_out["encoder_out"]) == 0:
             new_encoder_out = []
         else:
             new_encoder_out = [encoder_out["encoder_out"][0].index_select(1, new_order)] # T x B x C
-        # print('reorder_encoder_out, new_encoder_out', new_encoder_out)
+
         if len(encoder_out["encoder_padding_mask"]) == 0:
             new_encoder_padding_mask = []
         else:
             new_encoder_padding_mask = [
                 encoder_out["encoder_padding_mask"][0].index_select(0, new_order)
             ]
-        # print('reorder_encoder_out', new_encoder_out, new_encoder_padding_mask)
-        # print('reorder_encoder_out shape', new_encoder_out[0].size(), new_encoder_padding_mask[0].size())
+
         return {
             "encoder_out": new_encoder_out,  # T x B x C
             "encoder_padding_mask": new_encoder_padding_mask,  # B x T
@@ -360,26 +349,6 @@ class BartDecoder(FairseqIncrementalDecoder):
         self.decoder = TransformerDecoder(bart_decoder.args, bart_decoder.dictionary, bart_decoder.embed_tokens)
         self.decoder.load_state_dict(bart_decoder.state_dict())
 
-        # self.output_embed_dim = cfg.decoder_embed_dim
-
-        ################## Dirty hack to alter output embedding layer of the decoder
-        # decoder.share_input_output_embed = False
-        # decoder.embed_out = nn.Parameter(
-        #     torch.Tensor(len(dictionary), self.output_embed_dim)
-        # )
-        # nn.init.normal_(decoder.embed_out, mean=0, std=self.output_embed_dim ** -0.5)
-
-        # def _output_layer(features):
-        #     if decoder.share_input_output_embed:
-        #         return F.linear(features, decoder.embed_tokens.weight)
-        #     else:
-        #         return F.linear(features, decoder.embed_out)
-        # decoder.output_layer = _output_layer
-        ##################
-
-        # d = len(self.decoder.dictionary.symbols)
-        # self.proj = Linear(d, len(tgt_dict))
-
     def forward(
         self, prev_output_tokens, encoder_out=None, incremental_state=None, **unused
     ):
@@ -397,12 +366,6 @@ class BartDecoder(FairseqIncrementalDecoder):
                 - the decoder's output of shape `(batch, tgt_len, vocab)`
                 - a dictionary with any model-specific outputs
         """
-        # print('encoder_out', encoder_out)
-        # print('encoder_out', encoder_out["encoder_out"][0].shape,
-        #     encoder_out["encoder_padding_mask"][0].shape,  # T x B
-        # )
-        # encoder_out['encoder_out'] = [encoder_out['encoder_out'].transpose(0, 1)] # []
-        # encoder_out['encoder_padding_mask'] = [encoder_out['encoder_out']] # [T x B]
         x, extra = self.decoder(prev_output_tokens, encoder_out, incremental_state)
 
         return x, extra
