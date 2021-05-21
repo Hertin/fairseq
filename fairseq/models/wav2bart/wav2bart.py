@@ -170,9 +170,11 @@ class Wav2Bart(FairseqEncoderDecoderModel):
     def build_decoder(cls, cfg: Wav2BartConfig):
         decoder = BartDecoder(cfg)
         if cfg.fix_decoder:
-            print('fix bart decoder')
-            for parameter in decoder.parameters():
+            for n, parameter in decoder.named_parameters():
+                if 'decoder.embed_positions' in n or 'decoder.embed_tokens' in n:
+                    continue
                 parameter.requires_grad = False
+
         return decoder
 
     def forward(self, **kwargs):
@@ -366,6 +368,7 @@ class BartDecoder(FairseqIncrementalDecoder):
                 - the decoder's output of shape `(batch, tgt_len, vocab)`
                 - a dictionary with any model-specific outputs
         """
+        # with torch.no_grad() if self.cfg.fix_decoder else contextlib.ExitStack():
         x, extra = self.decoder(prev_output_tokens, encoder_out, incremental_state)
 
         return x, extra
