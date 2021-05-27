@@ -249,6 +249,7 @@ class AudioPretrainingBertBPETask(FairseqTask):
             ref = decode(
                 utils.strip_pad(sample["target"][i], self.target_dictionary.pad()),
             )
+            print('hyp:', hyp, '\nref:', ref)
             num_char_errors += editdistance.eval(hyp, ref)
             num_chars += len(ref)
             hyp_words = hyp.split()
