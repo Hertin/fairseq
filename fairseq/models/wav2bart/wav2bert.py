@@ -182,6 +182,11 @@ class Wav2Bert(BaseFairseqModel):
 
         self.bert_layers = bert.model.encoder.sentence_encoder.layers
 
+        
+        self.proj = Linear(cfg.encoder_embed_dim, len(bert.task.target_dictionary))
+
+        # print('self.proj', self.proj)
+
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)
         return state_dict
@@ -225,6 +230,8 @@ class Wav2Bert(BaseFairseqModel):
                 x, encoder_padding_mask=encoder_padding_mask if has_pads else None
             )
         
+        x = self.proj(x)
+
         return {
             "encoder_out": x,  # T x B x C
             "padding_mask": encoder_padding_mask,  # B x T
