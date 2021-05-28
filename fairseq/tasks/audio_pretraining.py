@@ -151,6 +151,7 @@ class AudioPretrainingTask(FairseqTask):
         self.blank_symbol = "<s>"
 
         self.state.add_factory("target_dictionary", self.load_target_dictionary)
+        self.target_dictionary # dummy statement just to create the target dictionary
 
     @classmethod
     def setup_task(cls, cfg: AudioPretrainingConfig, **kwargs):
@@ -330,6 +331,7 @@ class AudioPretrainingTask(FairseqTask):
             ref = decode(
                 utils.strip_pad(sample["target"][i], self.target_dictionary.pad()),
             )
+            print('hyp', hyp, 'ref', ref)
             num_char_errors += editdistance.eval(hyp, ref)
             num_chars += len(ref)
             hyp_words = hyp.split()
