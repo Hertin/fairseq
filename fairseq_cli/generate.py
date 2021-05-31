@@ -22,8 +22,9 @@ from fairseq.dataclass.utils import convert_namespace_to_omegaconf
 from fairseq.logging import progress_bar
 from fairseq.logging.meters import StopwatchMeter, TimeMeter
 from fairseq.models.wav2bart import *
+from fairseq.models.wav2vec import *
 from omegaconf import DictConfig, read_write
-
+from ctcdecode import CTCBeamDecoder
 
 def main(cfg: DictConfig):
 
@@ -115,6 +116,8 @@ def _main(cfg: DictConfig, output_file):
         token_type = 'bart'
     elif type(models[0]) == Wav2BartChr:
         token_type = 'chr'
+    elif type(models[0]) == Wav2VecCtc or type(models[0]) == Wav2Bert:
+        token_type = 'chrctc'
     else:
         raise ValueError(f'token_type not defined for {type(models[0])}')
     print(f'token_type is {token_type}')
@@ -181,10 +184,23 @@ def _main(cfg: DictConfig, output_file):
     gen_timer = StopwatchMeter()
 
     extra_gen_cls_kwargs = {"lm_model": lms[0], "lm_weight": cfg.generation.lm_weight}
-    generator = task.build_generator(
-        models, cfg.generation, extra_gen_cls_kwargs=extra_gen_cls_kwargs
-    )
+    print('cfg.generation', cfg.generation)
 
+    
+    # print(cfg.task._name == 'audio_pretraining')
+    if cfg.task._name != 'audio_pretraining':
+        generator = task.build_generator(
+            models, cfg.generation, extra_gen_cls_kwargs=extra_gen_cls_kwargs
+        )
+    else:
+        print('use W2lViterbiDecoder')
+        from examples.speech_recognition.w2l_decoder import W2lViterbiDecoder
+        from easydict import EasyDict as edict
+        args = edict({
+            'criterion': 'ctc',
+            'nbest': 1,
+        })  
+        generator = W2lViterbiDecoder(args, task.target_dictionary)
     # Handle tokenization and BPE
     tokenizer = task.build_tokenizer(cfg.tokenizer)
     bpe = task.build_bpe(cfg.bpe)
@@ -268,6 +284,12 @@ def _main(cfg: DictConfig, output_file):
                         )
                     elif token_type == 'bart':
                         target_str = task.bart.decode(target_tokens.int().cpu())
+                    elif token_type == 'chrctc':
+                        target_str = tgt_dict.string(
+                            target_tokens,
+                            cfg.common_eval.post_process,
+                            escape_unk=True,
+                        )
                     else:
                         raise ValueError(f'token_type not defined for {type(models[0])}')
 
@@ -300,8 +322,12 @@ def _main(cfg: DictConfig, output_file):
                         align_dict=align_dict,
                         tgt_dict=tgt_dict,
                         remove_bpe=cfg.common_eval.post_process,
-                        extra_symbols_to_ignore=get_symbols_to_strip_from_output(generator),
+                        # extra_symbols_to_ignore=get_symbols_to_strip_from_output(generator),
                     )
+                elif token_type == 'chrctc':
+                    hypo_tokens = hypo["tokens"].int().cpu()
+                    hypo_str = task.target_dictionary.string(hypo_tokens)
+                    hypo["positional_scores"] = torch.FloatTensor([0.])
                 else:
                     raise ValueError(f'token_type not defined for {type(models[0])}')
 
@@ -313,6 +339,10 @@ def _main(cfg: DictConfig, output_file):
                 elif token_type == 'bart':
                     print('target_str', target_str)
                     print('typo_str', detok_hypo_str)
+                elif token_type == 'chrctc':
+                    print('target_str', ''.join(target_str.split()).replace('|', ' '))
+                    print('typo_str', ''.join(detok_hypo_str.split()).replace('|', ' '))
+
                 if not cfg.common_eval.quiet:
                     score = hypo["score"] / math.log(2)  # convert to base 2
                     # original hypothesis (after tokenization and BPE)
