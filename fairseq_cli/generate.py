@@ -24,7 +24,6 @@ from fairseq.logging.meters import StopwatchMeter, TimeMeter
 from fairseq.models.wav2bart import *
 from fairseq.models.wav2vec import *
 from omegaconf import DictConfig, read_write
-from ctcdecode import CTCBeamDecoder
 
 def main(cfg: DictConfig):
 
