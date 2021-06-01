@@ -111,12 +111,13 @@ def _main(cfg: DictConfig, output_file):
 
     token_type = None
     if type(models[0]) == Wav2Bart or type(models[0]) == WavTransBart or type(models[0]) == WavLinearBart:
-        
         token_type = 'bart'
     elif type(models[0]) == Wav2BartChr:
         token_type = 'chr'
-    elif type(models[0]) == Wav2VecCtc or type(models[0]) == Wav2Bert:
+    elif type(models[0]) == Wav2VecCtc or type(models[0]) == Wav2BertChr:
         token_type = 'chrctc'
+    elif type(models[0]) == Wav2Bert:
+        token_type = 'bert'
     else:
         raise ValueError(f'token_type not defined for {type(models[0])}')
     print(f'token_type is {token_type}')
@@ -187,7 +188,7 @@ def _main(cfg: DictConfig, output_file):
 
     
     # print(cfg.task._name == 'audio_pretraining')
-    if cfg.task._name != 'audio_pretraining':
+    if cfg.task._name != 'audio_pretraining' and cfg.task._name != 'audio_pretraining_bertbpe':
         generator = task.build_generator(
             models, cfg.generation, extra_gen_cls_kwargs=extra_gen_cls_kwargs
         )
@@ -238,7 +239,7 @@ def _main(cfg: DictConfig, output_file):
             prefix_tokens=prefix_tokens,
             constraints=constraints,
         )
-
+        # print('hypos', hypos)
         num_generated_tokens = sum(len(h[0]["tokens"]) for h in hypos)
         gen_timer.stop(num_generated_tokens)
         for i, sample_id in enumerate(sample["id"].tolist()):
@@ -283,6 +284,8 @@ def _main(cfg: DictConfig, output_file):
                         )
                     elif token_type == 'bart':
                         target_str = task.bart.decode(target_tokens.int().cpu())
+                    elif token_type == 'bert':
+                        target_str = task.bert.decode(target_tokens.int().cpu())
                     elif token_type == 'chrctc':
                         target_str = tgt_dict.string(
                             target_tokens,
@@ -296,9 +299,6 @@ def _main(cfg: DictConfig, output_file):
             
             if has_target and token_type == 'chr':
                 target_str = decode_fn(target_str)
-
-
-
 
             if not cfg.common_eval.quiet:
                 if src_dict is not None:
@@ -327,6 +327,10 @@ def _main(cfg: DictConfig, output_file):
                     hypo_tokens = hypo["tokens"].int().cpu()
                     hypo_str = task.target_dictionary.string(hypo_tokens)
                     hypo["positional_scores"] = torch.FloatTensor([0.])
+                elif token_type == 'bert':
+                    hypo_tokens = hypo["tokens"].int().cpu()
+                    hypo_str = task.bert.decode(hypo["tokens"].int().cpu())
+                    alignment = hypo["alignment"]
                 else:
                     raise ValueError(f'token_type not defined for {type(models[0])}')
 

@@ -112,9 +112,15 @@ class AudioPretrainingBertBPETask(FairseqTask):
         print('cfg' ,cfg)
 
         print('cfg', cfg.bert_path)
-        self.bert = RobertaModel.from_pretrained(cfg.bert_path, checkpoint_file='model.pt')
+        if os.path.isfile(os.path.join(cfg.bert_path, 'model.pt')):
+            print('loading bert from cfg path')
+            self.bert = RobertaModel.from_pretrained(cfg.bert_path, checkpoint_file='model.pt')
+        else:
+            print('loading bert from relative path')
+            self.bert = RobertaModel.from_pretrained('models/roberta.base', checkpoint_file='model.pt')
+        # self.bert = RobertaModel.from_pretrained(cfg.bert_path, checkpoint_file='model.pt')
         self.state.merge_state_dict({'target_dictionary': self.bert.task.target_dictionary})
-
+        self.target_dictionary # dummy statement just to create the target dictionary
         
     @classmethod
     def setup_task(cls, cfg: AudioPretrainingConfig, **kwargs):
@@ -129,6 +135,8 @@ class AudioPretrainingBertBPETask(FairseqTask):
     def load_target_dictionary(self):
         if self.cfg.labels:
             dict_path = os.path.join(self.cfg.data, f"dict.{self.cfg.labels}.txt")
+            if not os.path.isfile(dict_path):
+                dict_path = os.path.join(self.cfg.label_dir, f"dict.{self.cfg.labels}.txt")
             return Dictionary.load(dict_path)
         return None
 
