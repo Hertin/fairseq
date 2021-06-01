@@ -70,6 +70,7 @@ class AddTargetDatasetBart(BaseWrapperDataset):
             prev_output_tokens[:, 1:] = target[:, :-1]
             collated["target"] = target.long()            
             collated["net_input"]["prev_output_tokens"] = prev_output_tokens.long()
+            collated["net_input"]["bart_input_tokens"] = collated["target"].clone()
             collated["ntokens"] += target.size(0)
 
         return collated
