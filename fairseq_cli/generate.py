@@ -110,7 +110,7 @@ def _main(cfg: DictConfig, output_file):
     )
 
     token_type = None
-    if type(models[0]) == Wav2Bart or type(models[0]) == WavTransBart or type(models[0]) == WavLinearBart:
+    if type(models[0]) == Wav2Bart or type(models[0]) == WavTransBart or type(models[0]) == WavLinearBart or type(models[0]) == WavBart2Bart:
         token_type = 'bart'
     elif type(models[0]) == Wav2BartChr:
         token_type = 'chr'
