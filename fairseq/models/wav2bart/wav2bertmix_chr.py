@@ -160,8 +160,8 @@ class Wav2BertMixConfig(FairseqDataclass):
 
     autoregressive: bool = II("task.autoregressive")
 
-    wav2vec_weight: float = 0.
-
+    wav2vec_weight: float = 1.
+    wav2bert_weight: float = 0.
     
 
     
@@ -185,7 +185,7 @@ class Wav2BertMixChr(BaseFairseqModel):
         
         self.proj = Linear(cfg.encoder_embed_dim, len(task.target_dictionary))
 
-        print('wav2vec weight', self.cfg.wav2vec_weight)
+        print('wav2vec weight', self.cfg.wav2vec_weight, 'wav2bert weight', self.cfg.wav2bert_weight)
 
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)
@@ -230,7 +230,7 @@ class Wav2BertMixChr(BaseFairseqModel):
                 x, encoder_padding_mask=encoder_padding_mask if has_pads else None
             )
         
-        x = x + self.cfg.wav2vec_weight * encoder_out['encoder_out'][0]
+        x = self.cfg.wav2bert_weight * x + self.cfg.wav2vec_weight * encoder_out['encoder_out'][0]
 
         x = self.proj(x)
 
