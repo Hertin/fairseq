@@ -221,7 +221,8 @@ class Wav2BertMixChr(BaseFairseqModel):
 
     def forward(self, **kwargs):
         encoder_out = self.w2v_encoder(**kwargs)
-        x = encoder_out['encoder_out'][0]
+        x_wav2vec = encoder_out['encoder_out'][0]
+        x = x_wav2vec
         encoder_padding_mask = encoder_out['encoder_padding_mask'][0]
         has_pads = encoder_padding_mask.any()
 
@@ -230,7 +231,7 @@ class Wav2BertMixChr(BaseFairseqModel):
                 x, encoder_padding_mask=encoder_padding_mask if has_pads else None
             )
         
-        x = self.cfg.wav2bert_weight * x + self.cfg.wav2vec_weight * encoder_out['encoder_out'][0]
+        x = self.cfg.wav2bert_weight * x + self.cfg.wav2vec_weight * x_wav2vec
 
         x = self.proj(x)
 
