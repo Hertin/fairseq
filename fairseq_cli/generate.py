@@ -114,7 +114,7 @@ def _main(cfg: DictConfig, output_file):
         token_type = 'bart'
     elif type(models[0]) == Wav2BartChr:
         token_type = 'chr'
-    elif type(models[0]) == Wav2VecCtc or type(models[0]) == Wav2BertChr:
+    elif type(models[0]) == Wav2VecCtc or type(models[0]) == Wav2BertChr or type(models[0]) == Wav2BertMixChr:
         token_type = 'chrctc'
     elif type(models[0]) == Wav2Bert:
         token_type = 'bert'
@@ -299,6 +299,8 @@ def _main(cfg: DictConfig, output_file):
             
             if has_target and token_type == 'chr':
                 target_str = decode_fn(target_str)
+            elif has_target and token_type == 'chrctc':
+                target_str = ''.join(target_str.split()).replace('|', ' ')
 
             if not cfg.common_eval.quiet:
                 if src_dict is not None:
@@ -336,15 +338,17 @@ def _main(cfg: DictConfig, output_file):
 
                 detok_hypo_str = decode_fn(hypo_str)
 
-                if token_type == 'chr':
+                if token_type == 'chr' or token_type == 'chrctc':
                     print('target_str', ''.join(target_str.split()).replace('|', ' '))
                     print('typo_str', ''.join(detok_hypo_str.split()).replace('|', ' '))
+                    detok_hypo_str = ''.join(detok_hypo_str.split()).replace('|', ' ')
+                    # target_str = ''.join(target_str.split()).replace('|', ' ')
                 elif token_type == 'bart':
                     print('target_str', target_str)
                     print('typo_str', detok_hypo_str)
-                elif token_type == 'chrctc':
-                    print('target_str', ''.join(target_str.split()).replace('|', ' '))
-                    print('typo_str', ''.join(detok_hypo_str.split()).replace('|', ' '))
+                #elif token_type == 'chrctc':
+                #    print('target_str', ''.join(target_str.split()).replace('|', ' '))
+                #    print('typo_str', ''.join(detok_hypo_str.split()).replace('|', ' '))
 
                 if not cfg.common_eval.quiet:
                     score = hypo["score"] / math.log(2)  # convert to base 2
@@ -436,6 +440,7 @@ def _main(cfg: DictConfig, output_file):
                         # print('add_string 1', target_str, '2', detok_hypo_str)
                         # if si > 2:
                         #     raise
+                        print('2', target_str, detok_hypo_str)
                         scorer.add_string(target_str, detok_hypo_str)
                     else:
                         scorer.add(target_tokens, hypo_tokens)

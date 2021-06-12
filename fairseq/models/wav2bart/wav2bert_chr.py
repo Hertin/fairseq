@@ -160,7 +160,8 @@ class Wav2BertConfig(FairseqDataclass):
 
     autoregressive: bool = II("task.autoregressive")
 
-    
+    wav2vec_weight: float = 0.
+    wav2bert_weight: float = 1. 
 
     
 
@@ -181,8 +182,10 @@ class Wav2BertChr(BaseFairseqModel):
             bert = RobertaModel.from_pretrained('models/roberta.base', checkpoint_file='model.pt')
 
         self.bert_layers = bert.model.encoder.sentence_encoder.layers
-
-        
+        # self.cfg.wav2bert_weight * x + self.cfg.wav2vec_weight * x_wav2vec
+        self.wav2bert_weight = self.cfg.wav2bert_weight
+        self.wav2vec_weight = self.cfg.wav2vec_weight
+        print("self.wav2vec_weight", self.wav2vec_weight, "self.wav2bert_weight", self.wav2bert_weight)        
         self.proj = Linear(cfg.encoder_embed_dim, len(task.target_dictionary))
 
         # print('self.proj', self.proj)
@@ -222,6 +225,8 @@ class Wav2BertChr(BaseFairseqModel):
     def forward(self, **kwargs):
         encoder_out = self.w2v_encoder(**kwargs)
         x = encoder_out['encoder_out'][0]
+        x_wav2vec = encoder_out['encoder_out'][0]
+
         encoder_padding_mask = encoder_out['encoder_padding_mask'][0]
         has_pads = encoder_padding_mask.any()
 
@@ -229,7 +234,9 @@ class Wav2BertChr(BaseFairseqModel):
             x = layer(
                 x, encoder_padding_mask=encoder_padding_mask if has_pads else None
             )
-        
+        # x = self.cfg.wav2bert_weight * x + self.cfg.wav2vec_weight * x_wav2vec
+        # x = 0.5 * x + 0.5 * x_wav2vec
+        x = self.wav2bert_weight * x + self.wav2vec_weight * x_wav2vec
         x = self.proj(x)
 
         return {
@@ -332,7 +339,8 @@ class Wav2VecEncoder(FairseqEncoder):
                 x = x.transpose(0, 1)
 
         x = self.final_dropout(x)
-
+        if self.num_updates == 0:
+            print('x.shape', x.shape)
         if self.proj:
             x = self.proj(x)
 
