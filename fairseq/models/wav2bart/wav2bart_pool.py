@@ -283,15 +283,15 @@ class Wav2VecEncoder(FairseqEncoder):
                 # B x T x C -> T x B x C
                 x = x.transpose(0, 1)
 
-        print('prev pool x.shape', x.shape, padding_mask.shape, )
+        # print('prev pool x.shape', x.shape, padding_mask.shape, )
         x = self.pooling(x.permute(2,1,0)).permute(2,1,0)
         x = self.final_dropout(x)
         padding_mask = padding_mask[:,:-9:10]
-        print('prev x.shape', x.shape, padding_mask.shape, )
+        # print('prev x.shape', x.shape, padding_mask.shape, )
         if self.proj:
             x = self.proj(x)
-        print('post x.shape', x.shape)
-        print(kwargs['bart_input_tokens'].shape)
+        # print('post x.shape', x.shape)
+        # print(kwargs['bart_input_tokens'].shape)
         # raise
         return {
             "encoder_out": [x],  # T x B x C
