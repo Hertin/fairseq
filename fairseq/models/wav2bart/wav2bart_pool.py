@@ -251,7 +251,7 @@ class Wav2VecEncoder(FairseqEncoder):
         self.freeze_finetune_updates = cfg.freeze_finetune_updates
         self.num_updates = 0
 
-        self.pooling = nn.AvgPool1d(20, stride=10)
+        self.pooling = nn.AvgPool1d(10, stride=10)
 
         if tgt_dict is not None:
             self.proj = Linear(d, len(tgt_dict))
@@ -283,14 +283,15 @@ class Wav2VecEncoder(FairseqEncoder):
                 # B x T x C -> T x B x C
                 x = x.transpose(0, 1)
 
-        # print('prev pool x.shape', x.shape)
+        print('prev pool x.shape', x.shape, padding_mask.shape, )
         x = self.pooling(x.permute(2,1,0)).permute(2,1,0)
         x = self.final_dropout(x)
-        # print('prev x.shape', x.shape)
+        padding_mask = padding_mask[:,:-9:10]
+        print('prev x.shape', x.shape, padding_mask.shape, )
         if self.proj:
             x = self.proj(x)
-        # print('post x.shape', x.shape)
-        # print(kwargs['bart_input_tokens'].shape)
+        print('post x.shape', x.shape)
+        print(kwargs['bart_input_tokens'].shape)
         # raise
         return {
             "encoder_out": [x],  # T x B x C
