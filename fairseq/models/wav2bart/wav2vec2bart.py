@@ -210,7 +210,7 @@ class Wav2Vec2Bart(FairseqEncoderDecoderModel):
 
     def get_normalized_probs_w2v(self, net_output, log_probs):
         """Get normalized probabilities (or log probs) from a net's output."""
-
+        print(net_output.keys())
         logits = net_output["wav2vec_logits"]
         if log_probs:
             return utils.log_softmax(logits.float(), dim=-1)
@@ -387,7 +387,6 @@ class Wav2VecEncoder(FairseqEncoder):
             bart_input = target_tokens
             bart_input_lengths = kwargs['target_token_lengths']
             ctc_weight, ce_weight = 1, 1
-        print(bart_input)
         token_emb = self.emb(bart_input)
         # token_emb = torch.index_select(transformed_emb, 0, bart_input.reshape(-1)).view(*bart_input.shape, -1)
 
@@ -485,7 +484,7 @@ class BartDecoder(FairseqIncrementalDecoder):
         self.decoder.embed_tokens = EmbeddingTransformed(self.decoder.embed_tokens, transform_embed)
 
     def forward(
-        self, prev_output_tokens, encoder_out=None, incremental_state=None, **kwargs
+        self, prev_output_tokens, encoder_out=None, incremental_state=None, **unused
     ):
         """
         Args:
@@ -503,8 +502,12 @@ class BartDecoder(FairseqIncrementalDecoder):
         """
         # with torch.no_grad() if self.cfg.fix_decoder else contextlib.ExitStack():
         x, extra = self.decoder(prev_output_tokens, encoder_out, incremental_state)
-        kwargs.update(extra)
-        return x, kwargs
+
+        for k in ['wav2vec_logits', 'wav2vec_padding_mask', 'ctc_weight', 'ce_weight']:
+            extra[k] = encoder_out[k]
+
+        print('bart decoder extra.keys()', extra.keys())
+        return x, extra
 
     def extract_features(
         self, prev_output_tokens, encoder_out=None, incremental_state=None, **unused
