@@ -66,6 +66,7 @@ class AddTargetDatasetChr(BaseWrapperDataset):
             collated["net_input"]["prev_output_tokens"] = torch.cat(
                 [eos, target], dim=-1
             ).long()
-
+            collated["net_input"]["target_tokens"] = collated["target"].clone()
+            collated["net_input"]["target_token_lengths"] = collated["target_lengths"].clone()
             collated["ntokens"] += target.size(0)
         return collated
